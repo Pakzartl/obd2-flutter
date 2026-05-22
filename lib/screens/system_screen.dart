@@ -154,7 +154,13 @@ class _SystemScreenState extends State<SystemScreen> {
                       fontSize: 14, fontFamily: 'monospace')),
             ],
           ]),
-          if (onUpdate != null) ...[
+          if (_appUpdating && label.contains('App')) ...[
+            const SizedBox(height: 12),
+            LinearProgressIndicator(value: _appUpdateProgress, color: color),
+            const SizedBox(height: 4),
+            Text('${(_appUpdateProgress * 100).toStringAsFixed(1)}%',
+                style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+          ] else if (onUpdate != null) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -201,10 +207,11 @@ class _SystemScreenState extends State<SystemScreen> {
   }
 
   bool _appUpdating = false;
+  double _appUpdateProgress = 0;
 
   Future<void> _updateApp(_ReleaseEntry release) async {
     if (_appUpdating || release.downloadUrl.isEmpty) return;
-    setState(() => _appUpdating = true);
+    setState(() { _appUpdating = true; _appUpdateProgress = 0; });
 
     try {
       final dir = await getTemporaryDirectory();
@@ -220,8 +227,17 @@ class _SystemScreenState extends State<SystemScreen> {
 
         final request = http.Request('GET', Uri.parse(release.downloadUrl));
         final response = await http.Client().send(request);
+        final total = response.contentLength ?? 0;
+        int received = 0;
+
         final sink = file.openWrite();
-        await response.stream.pipe(sink);
+        await response.stream.map((chunk) {
+          received += chunk.length;
+          if (total > 0 && mounted) {
+            setState(() => _appUpdateProgress = received / total);
+          }
+          return chunk;
+        }).pipe(sink);
         await sink.close();
       }
 
