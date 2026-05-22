@@ -498,6 +498,19 @@ class _DevTabState extends State<DevTab> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _syncing ? null : () => _restoreFromCloud(context),
+              icon: const Icon(Icons.cloud_download, size: 16),
+              label: const Text('Restore from Cloud'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.teal,
+                side: const BorderSide(color: Colors.teal),
+              ),
+            ),
+          ),
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -508,6 +521,40 @@ class _DevTabState extends State<DevTab> {
         ],
       ),
     );
+  }
+
+  Future<void> _restoreFromCloud(BuildContext context) async {
+    setState(() => _syncing = true);
+    try {
+      final count = await cloudSync.restoreFromCloud(
+        onProgress: (fetched, inserted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Fetched $fetched, restored $inserted...'),
+                duration: const Duration(seconds: 10),
+              ),
+            );
+          }
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restored $count rows from cloud')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   Future<void> _showApiKeyDialog(BuildContext context) async {

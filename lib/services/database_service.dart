@@ -218,6 +218,14 @@ class DatabaseService {
     return result.first['cnt'] as int;
   }
 
+  Future<bool> existsAtTimestamp(DateTime ts) async {
+    final db = await database;
+    final result = await db.rawQuery(
+        'SELECT 1 FROM telemetry WHERE timestamp = ? LIMIT 1',
+        [ts.millisecondsSinceEpoch]);
+    return result.isNotEmpty;
+  }
+
   Future<int> deleteOldSynced({int retainDays = 7}) async {
     final db = await database;
     final cutoff = DateTime.now().subtract(Duration(days: retainDays));

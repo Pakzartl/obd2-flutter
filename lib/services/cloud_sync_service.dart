@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/telemetry.dart';
 import 'database_service.dart';
 
 class CloudSyncService {
@@ -81,7 +82,6 @@ class CloudSyncService {
           break;
         }
       }
-      await _db.deleteOldSynced();
     } catch (e) {
       _lastError = e.toString();
     } finally {
@@ -89,6 +89,79 @@ class CloudSyncService {
       _lastSyncedCount += totalSynced;
     }
     return totalSynced;
+  }
+
+  Future<int> restoreFromCloud({
+    void Function(int fetched, int inserted)? onProgress,
+  }) async {
+    if (_apiKey.isEmpty) throw Exception('API key not set');
+    _lastError = null;
+    int totalInserted = 0;
+    int totalFetched = 0;
+    String? cursor;
+
+    try {
+      while (true) {
+        var url = '$_apiBase/api/telemetry?device_id=adv350-01&limit=1000';
+        if (cursor != null) url += '&until=$cursor';
+
+        final res = await http.get(
+          Uri.parse(url),
+          headers: {'X-API-Key': _apiKey},
+        ).timeout(const Duration(seconds: 30));
+
+        if (res.statusCode != 200) {
+          _lastError = 'HTTP ${res.statusCode}';
+          break;
+        }
+
+        final data = jsonDecode(res.body);
+        final rows = data['rows'] as List;
+        if (rows.isEmpty) break;
+
+        totalFetched += rows.length;
+        int batchInserted = 0;
+
+        for (final row in rows) {
+          final recordedAt = row['recorded_at'] as String?;
+          if (recordedAt == null) continue;
+          final ts = DateTime.parse(recordedAt);
+          final exists = await _db.existsAtTimestamp(ts);
+          if (exists) continue;
+
+          final t = _cloudRowToTelemetry(row, ts);
+          await _db.insertTelemetry(t);
+          batchInserted++;
+        }
+
+        totalInserted += batchInserted;
+        onProgress?.call(totalFetched, totalInserted);
+
+        final lastRecordedAt = rows.last['recorded_at'] as String?;
+        if (lastRecordedAt == null || rows.length < 1000) break;
+        cursor = lastRecordedAt;
+      }
+    } catch (e) {
+      _lastError = e.toString();
+      rethrow;
+    }
+    return totalInserted;
+  }
+
+  Telemetry _cloudRowToTelemetry(Map<String, dynamic> row, DateTime ts) {
+    return Telemetry(
+      rpm: (row['rpm'] as num?)?.toInt() ?? 0,
+      speed: (row['speed'] as num?)?.toInt() ?? 0,
+      throttle: (row['throttle'] as num?)?.toInt() ?? 0,
+      coolantTemp: (row['coolant_temp'] as num?)?.toInt() ?? 0,
+      mapKpa: (row['map_kpa'] as num?)?.toInt() ?? 0,
+      iat: (row['iat'] as num?)?.toInt() ?? 0,
+      engineLoad: (row['engine_load'] as num?)?.toInt() ?? 0,
+      ignitionTiming: (row['ignition_timing'] as num?)?.toInt() ?? 0,
+      rawBleHex: (row['raw_ble_hex'] as String?) ?? '',
+      timestamp: ts,
+      synced: true,
+    );
   }
 
   void dispose() {
