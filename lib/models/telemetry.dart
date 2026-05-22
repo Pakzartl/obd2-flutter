@@ -17,6 +17,7 @@ class Telemetry {
   final double cvtRatio;
   final int ridingScore;
   final int boardTemp;
+  final double distanceM;
   final int stft;
   final int lambda;
   final bool isBraking;
@@ -39,6 +40,7 @@ class Telemetry {
     this.cvtRatio = 0,
     this.ridingScore = 0,
     this.boardTemp = 0,
+    this.distanceM = 0,
     this.stft = 0,
     this.lambda = 0,
     this.isBraking = false,
@@ -199,6 +201,7 @@ class Telemetry {
         'cvt_ratio': cvtRatio,
         'riding_score': ridingScore,
         'board_temp': boardTemp,
+        'distance_m': distanceM,
         'timestamp': timestamp.millisecondsSinceEpoch,
         'synced': synced ? 1 : 0,
       };
@@ -218,6 +221,7 @@ class Telemetry {
         cvtRatio: (map['cvt_ratio'] as num?)?.toDouble() ?? 0,
         ridingScore: (map['riding_score'] as int?) ?? 0,
         boardTemp: (map['board_temp'] as int?) ?? 0,
+        distanceM: (map['distance_m'] as num?)?.toDouble() ?? 0,
         timestamp:
             DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int),
         synced: (map['synced'] as int) == 1,

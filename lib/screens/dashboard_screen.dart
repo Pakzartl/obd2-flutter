@@ -37,6 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   StreamSubscription? _connectionSub;
   DateTime? _lastSave;
   DateTime? _lastUiUpdate;
+  Telemetry? _prevTelemetry;
 
   @override
   void initState() {
@@ -75,7 +76,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // Save at 2Hz
       if (_lastSave == null || now.difference(_lastSave!).inMilliseconds >= 500) {
         if (t.rpm > 0 || t.speed > 0 || t.coolantTemp > 0) {
-          _db.insertTelemetry(t);
+          double distM = 0;
+          if (_prevTelemetry != null) {
+            final dtSec = now.difference(_lastSave!).inMilliseconds / 1000.0;
+            if (dtSec > 0 && dtSec < 10) {
+              distM = t.speed * dtSec / 3.6;
+            }
+          }
+          final toSave = Telemetry(
+            rpm: t.rpm, speed: t.speed, throttle: t.throttle,
+            coolantTemp: t.coolantTemp, mapKpa: t.mapKpa, iat: t.iat,
+            engineLoad: t.engineLoad, ignitionTiming: t.ignitionTiming,
+            rawBleHex: t.rawBleHex, fuelRateLph: t.fuelRateLph,
+            cvtRatio: t.cvtRatio, ridingScore: t.ridingScore,
+            boardTemp: t.boardTemp, distanceM: distM,
+            timestamp: now,
+          );
+          _db.insertTelemetry(toSave);
+          _prevTelemetry = t;
           _savedCount++;
           _lastSave = now;
         }

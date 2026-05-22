@@ -64,6 +64,7 @@ class CloudSyncService {
             'cvt_ratio': t.cvtRatio,
             'riding_score': t.ridingScore,
             'board_temp': t.boardTemp,
+            'distance_m': t.distanceM,
             'recorded_at': t.timestamp.toUtc().toIso8601String(),
           }).toList(),
         };
@@ -169,6 +170,7 @@ class CloudSyncService {
       cvtRatio: (row['cvt_ratio'] as num?)?.toDouble() ?? 0,
       ridingScore: (row['riding_score'] as num?)?.toInt() ?? 0,
       boardTemp: (row['board_temp'] as num?)?.toInt() ?? 0,
+      distanceM: (row['distance_m'] as num?)?.toDouble() ?? 0,
       timestamp: ts,
       synced: true,
     );

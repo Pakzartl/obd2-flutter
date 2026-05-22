@@ -14,7 +14,7 @@ class DatabaseService {
     final path = join(await getDatabasesPath(), 'adv350.db');
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE telemetry (
@@ -34,6 +34,7 @@ class DatabaseService {
             cvt_ratio REAL NOT NULL DEFAULT 0,
             riding_score INTEGER NOT NULL DEFAULT 0,
             board_temp INTEGER NOT NULL DEFAULT 0,
+            distance_m REAL NOT NULL DEFAULT 0,
             timestamp INTEGER NOT NULL,
             synced INTEGER NOT NULL DEFAULT 0
           )
@@ -141,6 +142,9 @@ class DatabaseService {
         if (oldVersion < 8) {
           await db.execute('CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp ON telemetry(timestamp)');
         }
+        if (oldVersion < 9) {
+          await db.execute('ALTER TABLE telemetry ADD COLUMN distance_m REAL NOT NULL DEFAULT 0');
+        }
       },
     );
   }
@@ -184,7 +188,7 @@ class DatabaseService {
   static const _tripColumns = [
     'id', 'rpm', 'speed', 'throttle', 'coolant_temp', 'map_kpa', 'iat',
     'engine_load', 'ignition_timing', 'fuel_rate_lph', 'cvt_ratio',
-    'riding_score', 'board_temp', 'timestamp', 'synced',
+    'riding_score', 'board_temp', 'distance_m', 'timestamp', 'synced',
   ];
 
   Future<List<Telemetry>> getRecentForTrip({int limit = 2000}) async {
