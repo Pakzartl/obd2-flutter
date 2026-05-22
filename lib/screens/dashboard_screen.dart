@@ -66,8 +66,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _telemetrySub = widget.bleService.telemetryStream.listen((t) {
       _current = t;
       final now = DateTime.now();
-      // Throttle UI to ~4Hz
-      if (_lastUiUpdate == null || now.difference(_lastUiUpdate!).inMilliseconds >= 250) {
+      // Throttle UI to 2Hz (match save rate)
+      if (_lastUiUpdate == null || now.difference(_lastUiUpdate!).inMilliseconds >= 500) {
         _lastUiUpdate = now;
         setState(() {});
       }

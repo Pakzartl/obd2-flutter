@@ -218,8 +218,11 @@ class DatabaseService {
     return result.first['cnt'] as int;
   }
 
-  Future<int> deleteSynced() async {
+  Future<int> deleteOldSynced({int retainDays = 7}) async {
     final db = await database;
-    return db.delete('telemetry', where: 'synced = 1');
+    final cutoff = DateTime.now().subtract(Duration(days: retainDays));
+    return db.delete('telemetry',
+        where: 'synced = 1 AND timestamp < ?',
+        whereArgs: [cutoff.millisecondsSinceEpoch]);
   }
 }

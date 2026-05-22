@@ -76,12 +76,12 @@ class CloudSyncService {
           final ids = rows.where((t) => t.id != null).map((t) => t.id!).toList();
           await _db.markSynced(ids);
           totalSynced += ids.length;
-          await _db.deleteSynced();
         } else {
           _lastError = 'HTTP ${res.statusCode}: ${res.body}';
           break;
         }
       }
+      await _db.deleteOldSynced();
     } catch (e) {
       _lastError = e.toString();
     } finally {
