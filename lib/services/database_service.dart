@@ -226,6 +226,11 @@ class DatabaseService {
     return result.isNotEmpty;
   }
 
+  Future<int> deleteSyncedRows() async {
+    final db = await database;
+    return db.delete('telemetry', where: 'synced = 1');
+  }
+
   Future<int> deleteOldSynced({int retainDays = 7}) async {
     final db = await database;
     final cutoff = DateTime.now().subtract(Duration(days: retainDays));

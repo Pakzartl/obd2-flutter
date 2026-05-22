@@ -104,6 +104,8 @@ class CloudSyncService {
     int totalFetched = 0;
     String? cursor;
 
+    await _db.deleteSyncedRows();
+
     try {
       while (true) {
         var url = '$_apiBase/api/telemetry?device_id=adv350-01&limit=1000';
