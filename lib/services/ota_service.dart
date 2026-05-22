@@ -36,7 +36,7 @@ class OtaService {
 
   Future<FirmwareInfo?> checkForUpdate() async {
     try {
-      final res = await http.get(Uri.parse('$_apiBase/api/firmware/latest'));
+      final res = await http.get(Uri.parse('$_apiBase/api/firmware/latest?component=firmware-s3'));
       if (res.statusCode != 200) return null;
       return FirmwareInfo.fromJson(jsonDecode(res.body));
     } catch (_) {
