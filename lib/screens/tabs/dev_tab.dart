@@ -623,8 +623,9 @@ class _DevTabState extends State<DevTab> {
                       _appUpdateProgress = 0;
                     });
                     try {
+                      final size = data['size'] as int? ?? 0;
                       await _downloadAndInstallApk(
-                        downloadUrl,
+                        downloadUrl, size,
                         (p) => setDialogState(() => _appUpdateProgress = p),
                       );
                     } catch (e) {
@@ -656,11 +657,27 @@ class _DevTabState extends State<DevTab> {
 
   Future<void> _downloadAndInstallApk(
     String url,
+    int expectedSize,
     void Function(double) onProgress,
   ) async {
     final dir = await getTemporaryDirectory();
     final savePath = '${dir.path}/app_update.apk';
     final file = File(savePath);
+
+    if (await file.exists() && expectedSize > 0) {
+      final localSize = await file.length();
+      if (localSize == expectedSize) {
+        onProgress(1.0);
+        final result = await OpenFile.open(
+          savePath,
+          type: 'application/vnd.android.package-archive',
+        );
+        if (result.type != ResultType.done) {
+          throw Exception(result.message);
+        }
+        return;
+      }
+    }
 
     final request = http.Request('GET', Uri.parse(url));
     final response = await http.Client().send(request);
