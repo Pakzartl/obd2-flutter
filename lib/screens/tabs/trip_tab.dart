@@ -213,6 +213,8 @@ class _TripTabState extends State<TripTab> {
                     (t) => t.speed.toDouble(), Colors.blue),
                 _sensorCard('RPM', '', _data,
                     (t) => t.rpm.toDouble(), Colors.orange),
+                _sensorCard('Engine Load', '%', _data,
+                    (t) => t.engineLoad.toDouble(), Colors.deepOrange),
                 _sensorCard('Throttle', '%', _data,
                     (t) => t.throttle.toDouble(), Colors.green),
                 _sensorCard('Coolant', '°C', _data,
