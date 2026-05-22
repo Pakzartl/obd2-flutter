@@ -13,7 +13,7 @@ class BleTaskHandler extends TaskHandler {
   void onRepeatEvent(DateTime timestamp) {}
 
   @override
-  Future<void> onDestroy(DateTime timestamp) async {}
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {}
 }
 
 class ForegroundService {
@@ -34,6 +34,7 @@ class ForegroundService {
         onlyAlertOnce: true,
         playSound: false,
       ),
+      iosNotificationOptions: const IOSNotificationOptions(),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat(5000),
         autoRunOnBoot: false,
