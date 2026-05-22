@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:open_file/open_file.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../services/ble_service.dart';
 import '../../services/cloud_sync_service.dart';
 import '../raw_log_screen.dart';
@@ -552,6 +554,9 @@ class _DevTabState extends State<DevTab> {
     }
   }
 
+  bool _appUpdating = false;
+  double _appUpdateProgress = 0;
+
   Future<void> _checkAppUpdate(BuildContext context) async {
     try {
       final info = await PackageInfo.fromPlatform();
@@ -569,44 +574,75 @@ class _DevTabState extends State<DevTab> {
       final isNew = _isNewer(latest, currentVersion);
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: Colors.grey[850],
-          title: Text(
-            isNew ? 'Update Available' : 'App is up to date',
-            style: const TextStyle(color: Colors.white),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Current: v$currentVersion',
-                  style: TextStyle(color: Colors.grey[400])),
-              Text('Latest: v$latest',
-                  style: TextStyle(
-                      color: isNew ? Colors.teal : Colors.grey[400])),
-              if (isNew && changelog.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(changelog,
-                    style: TextStyle(color: Colors.grey[300], fontSize: 13)),
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            backgroundColor: Colors.grey[850],
+            title: Text(
+              _appUpdating
+                  ? 'Downloading...'
+                  : isNew
+                      ? 'Update Available'
+                      : 'App is up to date',
+              style: const TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Current: v$currentVersion',
+                    style: TextStyle(color: Colors.grey[400])),
+                Text('Latest: v$latest',
+                    style: TextStyle(
+                        color: isNew ? Colors.teal : Colors.grey[400])),
+                if (isNew && changelog.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(changelog,
+                      style: TextStyle(color: Colors.grey[300], fontSize: 13)),
+                ],
+                if (_appUpdating) ...[
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(value: _appUpdateProgress),
+                  const SizedBox(height: 8),
+                  Text('${(_appUpdateProgress * 100).toStringAsFixed(1)}%',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[400])),
+                ],
               ],
+            ),
+            actions: [
+              if (!_appUpdating)
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              if (isNew && downloadUrl.isNotEmpty && !_appUpdating)
+                FilledButton.icon(
+                  onPressed: () async {
+                    setDialogState(() {
+                      _appUpdating = true;
+                      _appUpdateProgress = 0;
+                    });
+                    try {
+                      await _downloadAndInstallApk(
+                        downloadUrl,
+                        (p) => setDialogState(() => _appUpdateProgress = p),
+                      );
+                    } catch (e) {
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Update failed: $e')),
+                        );
+                      }
+                    } finally {
+                      _appUpdating = false;
+                    }
+                  },
+                  icon: const Icon(Icons.system_update, size: 18),
+                  label: const Text('Install Update'),
+                ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-            if (isNew && downloadUrl.isNotEmpty)
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  launchUrl(Uri.parse(downloadUrl),
-                      mode: LaunchMode.externalApplication);
-                },
-                icon: const Icon(Icons.download, size: 18),
-                label: const Text('Download'),
-              ),
-          ],
         ),
       );
     } catch (e) {
@@ -615,6 +651,36 @@ class _DevTabState extends State<DevTab> {
           SnackBar(content: Text('Check failed: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _downloadAndInstallApk(
+    String url,
+    void Function(double) onProgress,
+  ) async {
+    final dir = await getTemporaryDirectory();
+    final savePath = '${dir.path}/app_update.apk';
+    final file = File(savePath);
+
+    final request = http.Request('GET', Uri.parse(url));
+    final response = await http.Client().send(request);
+    final total = response.contentLength ?? 0;
+    int received = 0;
+
+    final sink = file.openWrite();
+    await response.stream.map((chunk) {
+      received += chunk.length;
+      if (total > 0) onProgress(received / total);
+      return chunk;
+    }).pipe(sink);
+    await sink.close();
+
+    final result = await OpenFile.open(
+      savePath,
+      type: 'application/vnd.android.package-archive',
+    );
+    if (result.type != ResultType.done) {
+      throw Exception(result.message);
     }
   }
 
