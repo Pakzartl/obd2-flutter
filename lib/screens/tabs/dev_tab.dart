@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/ble_service.dart';
 import '../../services/cloud_sync_service.dart';
 import '../raw_log_screen.dart';
@@ -550,19 +552,21 @@ class _DevTabState extends State<DevTab> {
     }
   }
 
-  static const String _appVersion = '0.1.1';
-
   Future<void> _checkAppUpdate(BuildContext context) async {
     try {
+      final info = await PackageInfo.fromPlatform();
+      final currentVersion = info.version;
+
       final res = await http.get(Uri.parse(
           'https://adv350.pakzartl.xyz/api/firmware/latest?component=flutter-app'));
       if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
       final data = jsonDecode(res.body);
       final latest = data['version'] as String;
       final changelog = data['changelog'] as String? ?? '';
+      final downloadUrl = data['download_url'] as String? ?? '';
 
       if (!context.mounted) return;
-      final isNew = _isNewer(latest, _appVersion);
+      final isNew = _isNewer(latest, currentVersion);
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -575,7 +579,7 @@ class _DevTabState extends State<DevTab> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Current: v$_appVersion',
+              Text('Current: v$currentVersion',
                   style: TextStyle(color: Colors.grey[400])),
               Text('Latest: v$latest',
                   style: TextStyle(
@@ -592,6 +596,16 @@ class _DevTabState extends State<DevTab> {
               onPressed: () => Navigator.pop(ctx),
               child: const Text('OK'),
             ),
+            if (isNew && downloadUrl.isNotEmpty)
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  launchUrl(Uri.parse(downloadUrl),
+                      mode: LaunchMode.externalApplication);
+                },
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text('Download'),
+              ),
           ],
         ),
       );
@@ -605,8 +619,8 @@ class _DevTabState extends State<DevTab> {
   }
 
   static bool _isNewer(String remote, String current) {
-    final r = remote.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    final c = current.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final r = remote.split('-').first.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final c = current.split('-').first.split('.').map((s) => int.tryParse(s) ?? 0).toList();
     for (int i = 0; i < 3; i++) {
       final rv = i < r.length ? r[i] : 0;
       final cv = i < c.length ? c[i] : 0;
