@@ -670,9 +670,8 @@ class _DevTabState extends State<DevTab> {
                       _appUpdateProgress = 0;
                     });
                     try {
-                      final size = data['size'] as int? ?? 0;
                       await _downloadAndInstallApk(
-                        downloadUrl, size,
+                        downloadUrl, latest,
                         (p) => setDialogState(() => _appUpdateProgress = p),
                       );
                     } catch (e) {
@@ -704,29 +703,31 @@ class _DevTabState extends State<DevTab> {
 
   Future<void> _downloadAndInstallApk(
     String url,
-    int expectedSize,
+    String version,
     void Function(double) onProgress,
   ) async {
     final dir = await getTemporaryDirectory();
-    final savePath = '${dir.path}/app_update.apk';
+    final savePath = '${dir.path}/app_update_$version.apk';
     final file = File(savePath);
 
-    if (await file.exists() && expectedSize > 0) {
-      final localSize = await file.length();
-      if (localSize == expectedSize) {
-        onProgress(1.0);
-        final result = await OpenFile.open(
-          savePath,
-          type: 'application/vnd.android.package-archive',
-        );
-        if (result.type != ResultType.done) {
-          throw Exception(result.message);
-        }
-        return;
+    if (await file.exists()) {
+      onProgress(1.0);
+      final result = await OpenFile.open(
+        savePath,
+        type: 'application/vnd.android.package-archive',
+      );
+      if (result.type != ResultType.done) {
+        throw Exception(result.message);
       }
+      return;
     }
 
-    if (await file.exists()) await file.delete();
+    // Clean old cached APKs
+    final cacheFiles = dir.listSync().where(
+        (f) => f.path.contains('app_update_') && f.path.endsWith('.apk'));
+    for (final f in cacheFiles) {
+      try { await f.delete(); } catch (_) {}
+    }
 
     final request = http.Request('GET', Uri.parse(url));
     final response = await http.Client().send(request);
