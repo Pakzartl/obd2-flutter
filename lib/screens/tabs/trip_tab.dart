@@ -341,11 +341,13 @@ class _TripTabState extends State<TripTab> {
   Widget _buildTripSummary() {
     if (_data.isEmpty) return const SizedBox.shrink();
 
-    final first = _data.first.timestamp;
-    final last = _data.last.timestamp;
-    final dur = last.difference(first);
-    final mins = dur.inMinutes;
-    final secs = dur.inSeconds % 60;
+    int totalMs = 0;
+    for (int i = 1; i < _data.length; i++) {
+      final dtMs = _data[i].timestamp.difference(_data[i - 1].timestamp).inMilliseconds;
+      if (dtMs > 0 && dtMs < 10000) totalMs += dtMs;
+    }
+    final mins = totalMs ~/ 60000;
+    final secs = (totalMs ~/ 1000) % 60;
 
     final speeds = _data.map((t) => t.speed.toDouble()).toList();
     final avgSpeed =
