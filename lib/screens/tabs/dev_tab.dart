@@ -679,6 +679,8 @@ class _DevTabState extends State<DevTab> {
       }
     }
 
+    if (await file.exists()) await file.delete();
+
     final request = http.Request('GET', Uri.parse(url));
     final response = await http.Client().send(request);
     final total = response.contentLength ?? 0;
