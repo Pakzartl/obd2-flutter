@@ -60,6 +60,10 @@ class CloudSyncService {
             'engine_load': t.engineLoad,
             'ignition_timing': t.ignitionTiming,
             'raw_ble_hex': t.rawBleHex,
+            'fuel_rate_lph': t.fuelRateLph,
+            'cvt_ratio': t.cvtRatio,
+            'riding_score': t.ridingScore,
+            'board_temp': t.boardTemp,
             'recorded_at': t.timestamp.toUtc().toIso8601String(),
           }).toList(),
         };
@@ -159,6 +163,10 @@ class CloudSyncService {
       engineLoad: (row['engine_load'] as num?)?.toInt() ?? 0,
       ignitionTiming: (row['ignition_timing'] as num?)?.toInt() ?? 0,
       rawBleHex: (row['raw_ble_hex'] as String?) ?? '',
+      fuelRateLph: (row['fuel_rate_lph'] as num?)?.toDouble() ?? 0,
+      cvtRatio: (row['cvt_ratio'] as num?)?.toDouble() ?? 0,
+      ridingScore: (row['riding_score'] as num?)?.toInt() ?? 0,
+      boardTemp: (row['board_temp'] as num?)?.toInt() ?? 0,
       timestamp: ts,
       synced: true,
     );
