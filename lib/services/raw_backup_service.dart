@@ -15,11 +15,40 @@ class RawBackupService {
     if (!await backupDir.exists()) {
       await backupDir.create(recursive: true);
     }
+    await _migrateOldFiles(backupDir);
     final now = DateTime.now();
     final filename = '${now.year}-${_p(now.month)}-${_p(now.day)}.jsonl';
     _currentPath = '${backupDir.path}/$filename';
     _sink = File(_currentPath!).openWrite(mode: FileMode.append);
     _count = 0;
+  }
+
+  Future<void> _migrateOldFiles(Directory backupDir) async {
+    final files = await backupDir.list().toList();
+    final oldFiles = files
+        .whereType<File>()
+        .where((f) => RegExp(r'\d{8}_\d{6}\.jsonl$').hasMatch(f.path))
+        .toList();
+    if (oldFiles.isEmpty) return;
+
+    final grouped = <String, List<File>>{};
+    for (final f in oldFiles) {
+      final name = f.path.split('/').last;
+      final date = '${name.substring(0, 4)}-${name.substring(4, 6)}-${name.substring(6, 8)}';
+      (grouped[date] ??= []).add(f);
+    }
+
+    for (final entry in grouped.entries) {
+      final dailyPath = '${backupDir.path}/${entry.key}.jsonl';
+      final dailySink = File(dailyPath).openWrite(mode: FileMode.append);
+      for (final old in entry.value) {
+        final content = await old.readAsString();
+        if (content.isNotEmpty) dailySink.write(content);
+        await old.delete();
+      }
+      await dailySink.flush();
+      await dailySink.close();
+    }
   }
 
   void writeRaw(List<int> bleBytes) {
