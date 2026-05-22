@@ -94,6 +94,12 @@ class RideTab extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: _RpmBar(rpm: current.rpm),
         ),
+        const SizedBox(height: 12),
+        // Engine Load bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: _EngineLoadBar(load: current.engineLoad),
+        ),
         const SizedBox(height: 20),
         // Secondary gauges
         Expanded(
@@ -221,6 +227,47 @@ class _RpmBar extends StatelessWidget {
             Text('6k', style: TextStyle(color: Colors.grey[700], fontSize: 9)),
             Text('9k', style: TextStyle(color: Colors.grey[700], fontSize: 9)),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class _EngineLoadBar extends StatelessWidget {
+  final int load;
+
+  const _EngineLoadBar({required this.load});
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = (load / 100).clamp(0.0, 1.0);
+    final color = load > 80
+        ? Colors.red
+        : load > 50
+            ? Colors.orange
+            : Colors.greenAccent;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Load', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            Text('$load%',
+                style: TextStyle(
+                    color: color, fontSize: 18,
+                    fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: fraction,
+            minHeight: 8,
+            backgroundColor: Colors.grey[800],
+            color: color,
+          ),
         ),
       ],
     );
