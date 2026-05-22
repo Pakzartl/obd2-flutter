@@ -206,6 +206,8 @@ class _TripTabState extends State<TripTab> {
               const SizedBox(height: 16),
               _buildTripSummary(),
               const SizedBox(height: 16),
+              if (_data.isNotEmpty) _buildEfficiencyInsight(),
+              if (_data.isNotEmpty) const SizedBox(height: 16),
               if (_data.isNotEmpty) ...[
                 _sensorCard('Speed', 'km/h', _data,
                     (t) => t.speed.toDouble(), Colors.blue),
@@ -394,6 +396,76 @@ class _TripTabState extends State<TripTab> {
               '${_data.length}', Colors.purple)),
         ]),
       ],
+    );
+  }
+
+  Widget _buildEfficiencyInsight() {
+    final moving = _data.where((t) => t.speed > 5 && t.fuelRateLph > 0.01).toList();
+    if (moving.length < 10) return const SizedBox.shrink();
+
+    double bestKmpl = 0;
+    int bestSpeed = 0;
+    int bestRpm = 0;
+    int bestCoolant = 0;
+    int bestScore = 0;
+
+    const window = 20;
+    for (int i = 0; i <= moving.length - window; i++) {
+      final chunk = moving.sublist(i, i + window);
+      final avgSpeed = chunk.map((t) => t.speed).reduce((a, b) => a + b) / window;
+      final avgFuel = chunk.map((t) => t.fuelRateLph).reduce((a, b) => a + b) / window;
+      if (avgFuel < 0.01) continue;
+      final kmpl = avgSpeed / avgFuel;
+      if (kmpl > bestKmpl) {
+        bestKmpl = kmpl;
+        bestSpeed = (avgSpeed).round();
+        bestRpm = (chunk.map((t) => t.rpm).reduce((a, b) => a + b) / window).round();
+        bestCoolant = (chunk.map((t) => t.coolantTemp).reduce((a, b) => a + b) / window).round();
+        bestScore = (chunk.map((t) => t.ridingScore).reduce((a, b) => a + b) / window).round();
+      }
+    }
+
+    if (bestKmpl == 0) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.eco, color: Colors.greenAccent, size: 18),
+            const SizedBox(width: 8),
+            Text('Best Efficiency',
+                style: TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text('${bestKmpl.round()} km/L',
+                style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            _effTile(Icons.speed, 'Speed', '$bestSpeed km/h', Colors.cyan),
+            _effTile(Icons.rotate_right, 'RPM', '$bestRpm', Colors.orange),
+            _effTile(Icons.thermostat, 'Coolant', '$bestCoolant°C', Colors.red),
+            _effTile(Icons.star, 'Score', '$bestScore', Colors.amber),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _effTile(IconData icon, String label, String value, Color color) {
+    return Expanded(
+      child: Column(children: [
+        Icon(icon, color: color.withValues(alpha: 0.6), size: 14),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+      ]),
     );
   }
 
