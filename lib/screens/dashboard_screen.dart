@@ -5,6 +5,7 @@ import '../services/ble_service.dart';
 import '../services/database_service.dart';
 import '../services/raw_backup_service.dart';
 import '../services/cloud_sync_service.dart';
+import '../services/foreground_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'settings_screen.dart';
 import 'tabs/ride_tab.dart';
@@ -86,7 +87,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : (_bleState == BleState.connected ? BleState.disconnected : _bleState));
       if (connected) {
         widget.bleService.startLiveNotify();
+        ForegroundService.instance.start();
       } else if (mounted) {
+        ForegroundService.instance.stop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Disconnected — reconnecting...')),
         );
@@ -101,6 +104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _connectionSub?.cancel();
     _rawBackup.endSession();
     _cloudSync.dispose();
+    ForegroundService.instance.stop();
     super.dispose();
   }
 
