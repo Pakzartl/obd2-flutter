@@ -89,7 +89,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         widget.bleService.startLiveNotify();
         ForegroundService.instance.start();
       } else if (mounted) {
-        ForegroundService.instance.stop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Disconnected — reconnecting...')),
         );
