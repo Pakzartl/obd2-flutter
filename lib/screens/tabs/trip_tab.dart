@@ -257,13 +257,18 @@ class _TripTabState extends State<TripTab> {
           spacing: 6,
           runSpacing: 4,
           children: [
+            _chip('1m', '1'),
             _chip('5m', '5'),
-            _chip('15m', '15'),
             _chip('30m', '30'),
             _chip('1h', '60'),
-            _chip('6h', '360'),
+            _chip('2h', '120'),
+            _chip('3h', '180'),
+            _chip('5h', '300'),
+            _chip('10h', '600'),
             _chip('24h', '1440'),
-            _chip('All', 'all'),
+            _chip('3d', '4320'),
+            _chip('7d', '10080'),
+            _chip('1M', '43200'),
             _chipCustom(),
             if (_prevRange != null)
               ActionChip(

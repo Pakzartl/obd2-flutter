@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/ble_service.dart';
 import '../../services/cloud_sync_service.dart';
@@ -94,6 +96,16 @@ class _DevTabState extends State<DevTab> {
               builder: (_) => OtaScreen(bleService: bleService),
             ),
           ),
+        ),
+        const SizedBox(height: 8),
+        // App version check
+        _actionTile(
+          context,
+          icon: Icons.update,
+          label: 'Check App Update',
+          subtitle: 'Check for new app version',
+          color: Colors.teal,
+          onTap: () => _checkAppUpdate(context),
         ),
         const SizedBox(height: 8),
         // History
@@ -536,6 +548,72 @@ class _DevTabState extends State<DevTab> {
       }
       if (mounted) setState(() {});
     }
+  }
+
+  static const String _appVersion = '0.1.1';
+
+  Future<void> _checkAppUpdate(BuildContext context) async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://adv350.pakzartl.xyz/api/firmware/latest?component=flutter-app'));
+      if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
+      final data = jsonDecode(res.body);
+      final latest = data['version'] as String;
+      final changelog = data['changelog'] as String? ?? '';
+
+      if (!context.mounted) return;
+      final isNew = _isNewer(latest, _appVersion);
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.grey[850],
+          title: Text(
+            isNew ? 'Update Available' : 'App is up to date',
+            style: const TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Current: v$_appVersion',
+                  style: TextStyle(color: Colors.grey[400])),
+              Text('Latest: v$latest',
+                  style: TextStyle(
+                      color: isNew ? Colors.teal : Colors.grey[400])),
+              if (isNew && changelog.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(changelog,
+                    style: TextStyle(color: Colors.grey[300], fontSize: 13)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Check failed: $e')),
+        );
+      }
+    }
+  }
+
+  static bool _isNewer(String remote, String current) {
+    final r = remote.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final c = current.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    for (int i = 0; i < 3; i++) {
+      final rv = i < r.length ? r[i] : 0;
+      final cv = i < c.length ? c[i] : 0;
+      if (rv > cv) return true;
+      if (rv < cv) return false;
+    }
+    return false;
   }
 
   Widget _actionTile(
