@@ -485,10 +485,9 @@ class _TripTabState extends State<TripTab> {
               _statBox('MIN', min, Colors.white38),
             ]),
             const SizedBox(height: 8),
-            GestureDetector(
+            LayoutBuilder(builder: (context, constraints) => GestureDetector(
               onHorizontalDragStart: (d) {
-                final frac = (d.localPosition.dx /
-                        context.findRenderObject()!.paintBounds.width)
+                final frac = (d.localPosition.dx / constraints.maxWidth)
                     .clamp(0.0, 1.0);
                 setState(() {
                   _isDragging = true;
@@ -497,9 +496,8 @@ class _TripTabState extends State<TripTab> {
                 });
               },
               onHorizontalDragUpdate: (d) {
-                final box = context.findRenderObject() as RenderBox;
-                final frac =
-                    (d.localPosition.dx / box.size.width).clamp(0.0, 1.0);
+                final frac = (d.localPosition.dx / constraints.maxWidth)
+                    .clamp(0.0, 1.0);
                 setState(() => _selEndFrac = frac);
               },
               onHorizontalDragEnd: (_) {
@@ -517,7 +515,7 @@ class _TripTabState extends State<TripTab> {
                   ),
                 ),
               ),
-            ),
+            )),
           ],
         ),
       ),
