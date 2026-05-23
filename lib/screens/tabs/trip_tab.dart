@@ -18,7 +18,7 @@ class _TripTabState extends State<TripTab> {
   List<Telemetry> _data = [];
   bool _loading = true;
   bool _loadInProgress = false;
-  String _range = '30';
+  String _range = 'custom';
   String? _prevRange;
   DateTime? _customStart;
   DateTime? _customEnd;
@@ -33,9 +33,12 @@ class _TripTabState extends State<TripTab> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _customStart = DateTime(now.year, now.month, now.day);
+    _customEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
     _load();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (widget.isActive && _range != 'all' && _range != 'custom' && !_loadInProgress) {
+      if (widget.isActive && _range != 'all' && !_loadInProgress) {
         _load(silent: true);
       }
     });
@@ -206,19 +209,26 @@ class _TripTabState extends State<TripTab> {
               if (_data.isNotEmpty) const SizedBox(height: 16),
               if (_data.isNotEmpty) ...[
                 _sensorCard('Speed', 'km/h', _data,
-                    (t) => t.speed.toDouble(), Colors.blue),
+                    (t) => t.speed.toDouble(), Colors.blue,
+                    thresholds: [_Threshold(100, Colors.yellow), _Threshold(130, Colors.red)]),
                 _sensorCard('RPM', '', _data,
-                    (t) => t.rpm.toDouble(), Colors.orange),
+                    (t) => t.rpm.toDouble(), Colors.orange,
+                    thresholds: [_Threshold(7500, Colors.yellow), _Threshold(8500, Colors.red)]),
                 _sensorCard('Engine Load', '%', _data,
-                    (t) => t.engineLoad.toDouble(), Colors.deepOrange),
+                    (t) => t.engineLoad.toDouble(), Colors.deepOrange,
+                    thresholds: [_Threshold(70, Colors.yellow), _Threshold(90, Colors.red)]),
                 _sensorCard('Throttle', '%', _data,
-                    (t) => t.throttle.toDouble(), Colors.green),
+                    (t) => t.throttle.toDouble(), Colors.green,
+                    thresholds: [_Threshold(70, Colors.yellow), _Threshold(90, Colors.red)]),
                 _sensorCard('Coolant', '°C', _data,
-                    (t) => t.coolantTemp.toDouble(), Colors.red),
+                    (t) => t.coolantTemp.toDouble(), Colors.red,
+                    thresholds: [_Threshold(105, Colors.yellow), _Threshold(115, Colors.red)]),
                 _sensorCard('MAP', 'kPa', _data,
-                    (t) => t.mapKpa.toDouble(), Colors.purple),
+                    (t) => t.mapKpa.toDouble(), Colors.purple,
+                    thresholds: [_Threshold(85, Colors.yellow), _Threshold(95, Colors.red)]),
                 _sensorCard('IAT', '°C', _data,
-                    (t) => t.iat.toDouble(), Colors.teal),
+                    (t) => t.iat.toDouble(), Colors.teal,
+                    thresholds: [_Threshold(60, Colors.yellow), _Threshold(70, Colors.red)]),
                 _sensorCard('Fuel Rate', 'L/h', _data,
                     (t) => t.fuelRateLph, Colors.orange),
                 _sensorCard('CVT Ratio', '', _data,
@@ -505,7 +515,8 @@ class _TripTabState extends State<TripTab> {
   }
 
   Widget _sensorCard(String name, String unit, List<Telemetry> data,
-      double Function(Telemetry) getValue, Color color) {
+      double Function(Telemetry) getValue, Color color,
+      {List<_Threshold>? thresholds}) {
     if (data.isEmpty) return const SizedBox.shrink();
 
     final values = data.map(getValue).toList();
@@ -585,6 +596,7 @@ class _TripTabState extends State<TripTab> {
                     spark, sparkTs, color, _dataVersion,
                     selStart: _isDragging ? _selStartFrac : null,
                     selEnd: _isDragging ? _selEndFrac : null,
+                    thresholds: thresholds,
                   ),
                 ),
               ),
@@ -609,6 +621,12 @@ class _TripTabState extends State<TripTab> {
   }
 }
 
+class _Threshold {
+  final double value;
+  final Color color;
+  const _Threshold(this.value, this.color);
+}
+
 class _SparkPainter extends CustomPainter {
   final List<double> values;
   final List<int> timestamps;
@@ -616,10 +634,11 @@ class _SparkPainter extends CustomPainter {
   final int dataVersion;
   final double? selStart;
   final double? selEnd;
+  final List<_Threshold>? thresholds;
   static const int gapMs = 10000;
 
   _SparkPainter(this.values, this.timestamps, this.color, this.dataVersion,
-      {this.selStart, this.selEnd});
+      {this.selStart, this.selEnd, this.thresholds});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -662,6 +681,33 @@ class _SparkPainter extends CustomPainter {
           ..color = Colors.blue.withValues(alpha: 0.6)
           ..strokeWidth = 1,
       );
+    }
+
+    // Threshold dashed lines
+    if (thresholds != null) {
+      for (final t in thresholds!) {
+        if (t.value < vMin || t.value > vMax) continue;
+        final y = toY(t.value);
+        final dashPaint = Paint()
+          ..color = t.color.withValues(alpha: 0.5)
+          ..strokeWidth = 0.8
+          ..style = PaintingStyle.stroke;
+        const dashW = 4.0;
+        const gapW = 3.0;
+        double x = 0;
+        while (x < size.width) {
+          canvas.drawLine(Offset(x, y), Offset((x + dashW).clamp(0, size.width), y), dashPaint);
+          x += dashW + gapW;
+        }
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '${t.value.round()}',
+            style: TextStyle(color: t.color.withValues(alpha: 0.6), fontSize: 8),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(size.width - tp.width - 2, y - tp.height - 1));
+      }
     }
 
     // Data line
