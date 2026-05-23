@@ -202,6 +202,27 @@ class DatabaseService {
     return maps.map(Telemetry.fromMap).toList();
   }
 
+  Future<List<Telemetry>> getForTimeRange({
+    required DateTime since,
+    DateTime? until,
+  }) async {
+    final db = await database;
+    final where = until != null
+        ? 'timestamp > ? AND timestamp < ?'
+        : 'timestamp > ?';
+    final whereArgs = until != null
+        ? [since.millisecondsSinceEpoch, until.millisecondsSinceEpoch]
+        : [since.millisecondsSinceEpoch];
+    final maps = await db.query(
+      'telemetry',
+      columns: _tripColumns,
+      where: where,
+      whereArgs: whereArgs,
+      orderBy: 'timestamp ASC',
+    );
+    return maps.map(Telemetry.fromMap).toList();
+  }
+
   Future<List<Telemetry>> getAfter(DateTime since, {int limit = 500}) async {
     final db = await database;
     final maps = await db.query(

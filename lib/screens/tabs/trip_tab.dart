@@ -72,22 +72,18 @@ class _TripTabState extends State<TripTab> {
 
     // Full load: first load, range change, zoom
     if (!silent && mounted) setState(() => _loading = true);
-    final limit = _range == 'all' ? 10000 : 2000;
-    final all = await _db.getRecentForTrip(limit: limit);
-    var decoded = all.where((t) => t.rpm < 20000).toList();
-
+    List<Telemetry> all;
     if (_range == 'custom' && _customStart != null && _customEnd != null) {
-      decoded = decoded
-          .where((t) =>
-              t.timestamp.isAfter(_customStart!) &&
-              t.timestamp.isBefore(_customEnd!))
-          .toList();
+      all = await _db.getForTimeRange(since: _customStart!, until: _customEnd!);
     } else if (_range != 'all') {
       final mins = int.tryParse(_range) ?? 9999;
       final cutoff = DateTime.now().subtract(Duration(minutes: mins));
-      decoded = decoded.where((t) => t.timestamp.isAfter(cutoff)).toList();
+      all = await _db.getForTimeRange(since: cutoff);
+    } else {
+      all = await _db.getRecentForTrip(limit: 10000);
     }
-    _data = decoded.reversed.toList();
+    var decoded = all.where((t) => t.rpm < 20000).toList();
+    _data = _range == 'all' ? decoded.reversed.toList() : decoded;
     _lastTimestamp = _data.isNotEmpty ? _data.last.timestamp : null;
     _dataVersion++;
     _loadInProgress = false;
@@ -273,6 +269,7 @@ class _TripTabState extends State<TripTab> {
             _chip('3d', '4320'),
             _chip('7d', '10080'),
             _chip('1M', '43200'),
+            _chip('All', 'all'),
             _chipCustom(),
             if (_prevRange != null)
               ActionChip(
