@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/telemetry.dart';
+import 'foreground_service.dart';
 
 class BleService {
   static const String canServiceUuid =
@@ -132,6 +133,7 @@ class BleService {
         _subscription = null;
         if (wasConnected) {
           _connectionController.add(false);
+          ForegroundService.instance.start(connected: false);
         }
         if (_autoReconnect && wasConnected) {
           _reconnectToLastDevice();
@@ -149,6 +151,7 @@ class BleService {
     _autoReconnect = true;
     _connectionController.add(true);
     _saveDevice(device.remoteId.str);
+    ForegroundService.instance.start(connected: true);
 
     final services = await device.discoverServices();
     for (final service in services) {
@@ -356,6 +359,7 @@ class BleService {
     _fwVersionChar = null;
     _mgmtChar = null;
     _connectionController.add(false);
+    ForegroundService.instance.stop();
   }
 
   void dispose() {
@@ -367,5 +371,6 @@ class BleService {
     _telemetryController.close();
     _rawDataController.close();
     _connectionController.close();
+    ForegroundService.instance.stop();
   }
 }
