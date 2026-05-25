@@ -59,6 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _cloudSync.startPeriodic();
     }
     widget.bleService.startLiveNotify();
+    ForegroundService.instance.start(connected: widget.bleService.isConnected);
 
     _rawSub = widget.bleService.rawDataStream.listen((data) {
       _rawBackup.writeRaw(data);
