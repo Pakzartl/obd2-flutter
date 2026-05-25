@@ -3,6 +3,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/telemetry.dart';
 import 'foreground_service.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 class BleService {
   static const String canServiceUuid =
@@ -42,6 +43,18 @@ class BleService {
   BleService() {
     _initAdapterStateListener();
     _startReconnectTimer();
+    _initForegroundTaskDataListener();
+  }
+
+  void _initForegroundTaskDataListener() {
+    FlutterForegroundTask.addTaskDataCallback((data) {
+      if (data is bool) {
+        final isConnected = data;
+        if (!isConnected && _autoReconnect && _device == null && !_isReconnecting) {
+          _reconnectToLastDevice();
+        }
+      }
+    });
   }
 
   void _initAdapterStateListener() {

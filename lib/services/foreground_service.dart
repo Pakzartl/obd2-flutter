@@ -1,4 +1,5 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -10,7 +11,23 @@ class BleTaskHandler extends TaskHandler {
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {}
 
   @override
-  void onRepeatEvent(DateTime timestamp) {}
+  void onRepeatEvent(DateTime timestamp) async {
+    try {
+      final devices = FlutterBluePlus.connectedDevices;
+      final hasAdv350 = devices.any((d) => d.platformName.startsWith('ADV350'));
+      
+      final text = hasAdv350
+          ? 'Connected — recording telemetry...'
+          : 'Disconnected — attempting reconnect...';
+
+      await FlutterForegroundTask.updateService(
+        notificationTitle: 'ADV350 Logger Active',
+        notificationText: text,
+      );
+
+      FlutterForegroundTask.sendDataToMain(hasAdv350);
+    } catch (_) {}
+  }
 
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {}
