@@ -108,10 +108,7 @@ class BleService {
       }
     });
 
-    await FlutterBluePlus.startScan(
-      withServices: [Guid(canServiceUuid)],
-      timeout: timeout,
-    );
+    await FlutterBluePlus.startScan(timeout: timeout);
     await Future.delayed(timeout);
     await sub.cancel();
     return results;
