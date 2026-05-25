@@ -42,14 +42,25 @@ class ForegroundService {
     );
   }
 
-  Future<void> start() async {
+  Future<void> start({bool connected = true}) async {
     init();
     await FlutterForegroundTask.requestNotificationPermission();
-    if (await FlutterForegroundTask.isRunningService) return;
+
+    final text = connected
+        ? 'Connected — recording telemetry...'
+        : 'Disconnected — attempting reconnect...';
+
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.updateService(
+        notificationTitle: 'ADV350 Logger Active',
+        notificationText: text,
+      );
+      return;
+    }
 
     await FlutterForegroundTask.startService(
       notificationTitle: 'ADV350 Logger Active',
-      notificationText: 'Recording telemetry...',
+      notificationText: text,
       callback: startCallback,
     );
   }

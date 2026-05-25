@@ -105,11 +105,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : (_bleState == BleState.connected ? BleState.disconnected : _bleState));
       if (connected) {
         widget.bleService.startLiveNotify();
-        ForegroundService.instance.start();
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Disconnected — reconnecting...')),
-        );
+        ForegroundService.instance.start(connected: true);
+      } else {
+        ForegroundService.instance.start(connected: false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Disconnected — reconnecting...')),
+          );
+        }
       }
     });
   }

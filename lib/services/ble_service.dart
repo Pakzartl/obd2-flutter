@@ -27,6 +27,8 @@ class BleService {
   BluetoothCharacteristic? _mgmtChar;
   StreamSubscription? _subscription;
   StreamSubscription? _connStateSub;
+  StreamSubscription? _adapterStateSub;
+  Timer? _reconnectTimer;
   bool _autoReconnect = true;
   bool _isReconnecting = false;
   DateTime? _lastScanTime;
@@ -35,6 +37,31 @@ class BleService {
   final _connectionController = StreamController<bool>.broadcast();
 
   static const String _lastDeviceKey = 'last_ble_device_id';
+
+  BleService() {
+    _initAdapterStateListener();
+    _startReconnectTimer();
+  }
+
+  void _initAdapterStateListener() {
+    _adapterStateSub?.cancel();
+    _adapterStateSub = FlutterBluePlus.adapterState.listen((state) {
+      if (state == BluetoothAdapterState.on) {
+        if (_autoReconnect && _device == null && !_isReconnecting) {
+          _reconnectToLastDevice();
+        }
+      }
+    });
+  }
+
+  void _startReconnectTimer() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (_autoReconnect && _device == null && !_isReconnecting) {
+        _reconnectToLastDevice();
+      }
+    });
+  }
 
   Stream<Telemetry> get telemetryStream => _telemetryController.stream;
   Stream<List<int>> get rawDataStream => _rawDataController.stream;
@@ -81,7 +108,10 @@ class BleService {
       }
     });
 
-    await FlutterBluePlus.startScan(timeout: timeout);
+    await FlutterBluePlus.startScan(
+      withServices: [Guid(canServiceUuid)],
+      timeout: timeout,
+    );
     await Future.delayed(timeout);
     await sub.cancel();
     return results;
@@ -107,7 +137,7 @@ class BleService {
           _connectionController.add(false);
         }
         if (_autoReconnect && wasConnected) {
-          _tryReconnect(device);
+          _reconnectToLastDevice();
         }
       }
     });
@@ -188,34 +218,31 @@ class BleService {
     }
   }
 
-  Future<void> _tryReconnect(BluetoothDevice device) async {
-    if (_isReconnecting) return;
+  Future<void> _reconnectToLastDevice() async {
+    if (_isReconnecting || !_autoReconnect || _device != null) return;
     _isReconnecting = true;
     try {
-      // Bug 4: check if OS already has a connection (app restart case)
+      final lastId = await lastDeviceId;
+      if (lastId == null || !_autoReconnect || _device != null) return;
+
+      // 1. Check if OS already has a connection
       try {
         final systemDevices = await FlutterBluePlus.systemDevices([]);
-        final existing = systemDevices.where(
-            (d) => d.remoteId.str == device.remoteId.str);
-        if (existing.isNotEmpty) {
+        final existing = systemDevices.where((d) => d.remoteId.str == lastId);
+        if (existing.isNotEmpty && _autoReconnect && _device == null) {
           await connect(existing.first);
           return;
         }
       } catch (_) {}
 
-      for (int i = 0; i < 3; i++) {
-        if (!_autoReconnect || _device != null) return;
-        await Future.delayed(Duration(seconds: 5 + i * 5));
-        if (!_autoReconnect || _device != null) return;
-        try {
-          try { await device.disconnect(); } catch (_) {}
-          await Future.delayed(const Duration(milliseconds: 500));
-          final results = await scan(timeout: const Duration(seconds: 4));
-          if (results.isEmpty || !_autoReconnect) continue;
-          await connect(results.first.device);
-          return;
-        } catch (_) {}
+      // 2. Scan and connect
+      final results = await scan(timeout: const Duration(seconds: 4));
+      if (!_autoReconnect || _device != null) return;
+      final match = results.where((r) => r.device.remoteId.str == lastId);
+      if (match.isNotEmpty && _autoReconnect && _device == null) {
+        await connect(match.first.device);
       }
+    } catch (_) {
     } finally {
       _isReconnecting = false;
     }
@@ -338,6 +365,8 @@ class BleService {
     _autoReconnect = false;
     _connStateSub?.cancel();
     _subscription?.cancel();
+    _adapterStateSub?.cancel();
+    _reconnectTimer?.cancel();
     _telemetryController.close();
     _rawDataController.close();
     _connectionController.close();
