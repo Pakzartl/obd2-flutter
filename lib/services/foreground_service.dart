@@ -46,6 +46,11 @@ class ForegroundService {
     init();
     await FlutterForegroundTask.requestNotificationPermission();
 
+    // Request ignoring battery optimizations to keep the main isolate alive for BLE in the background
+    if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
+      await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+    }
+
     final text = connected
         ? 'Connected — recording telemetry...'
         : 'Disconnected — attempting reconnect...';
